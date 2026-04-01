@@ -1,0 +1,16 @@
+# Audio files and generated data — never commit these
+data/raw/
+data/processed/
+models/
+
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# OS clutter
+.DS_Store
+Thumbs.db
