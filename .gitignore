@@ -14,3 +14,10 @@ __pycache__/
 # OS clutter
 .DS_Store
 Thumbs.db
+
+# Logs and temporary files
+processing.log
+*.png
+
+# VS Code settings
+.vscode/
