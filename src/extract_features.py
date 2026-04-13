@@ -54,10 +54,9 @@ def extract_mfcc_features(y, sr):
 
 
 # ── CATEGORY 2: Spectral shape ───────────────────────────────
-# All librosa spectral shape functions expect a MAGNITUDE spectrogram
-# when using S=. Our .npy files store magnitude, so we pass S directly.
-# (chroma_stft is the exception — it expects power, handled separately.)
-def extract_spectral_features(y, S, sr):
+# librosa spectral shape functions expect a MAGNITUDE spectrogram.
+# chroma_stft is the exception — it expects power (handled separately).
+def extract_spectral_features(S, sr):
     features = {}
 
     features['spectral_centroid']  = float(np.mean(
@@ -88,8 +87,7 @@ def extract_harmony_features(sr, chroma):
     for i, v in enumerate(chroma_std):
         features[f'chroma_std_{i}'] = float(v)
 
-    # low entropy = tonal (energy in few pitch classes)
-    # high entropy = chromatic (energy spread across all 12)
+    # low entropy = tonal, high entropy = chromatic
     p = chroma_mean / (np.sum(chroma_mean) + 1e-10)
     p = np.maximum(p, 1e-10)
     p = p / np.sum(p)
@@ -115,8 +113,8 @@ def extract_harmony_features(sr, chroma):
 
     features['key_clarity'] = max(best_major, best_minor)
 
-    # clamp negatives to 0 — negative correlation means "not this key",
-    # not "opposite mode"; clamping keeps key_mode in [0, 1]
+    # clamp negatives — negative correlation means "not this key",
+    # not "opposite mode"; keeps key_mode in [0, 1]
     best_major_pos = max(best_major, 0.0)
     best_minor_pos = max(best_minor, 0.0)
     features['key_mode'] = best_major_pos / (
@@ -192,8 +190,9 @@ def extract_dynamics_features(y, sr, S):
     if rms_max < 1e-10:
         features['dynamic_range'] = 0.0
     else:
+        # cap at 80 dB — values above that are artifacts from near-zero rms_min
         features['dynamic_range'] = float(
-            20 * np.log10((rms_max + 1e-10) / (rms_min + 1e-10)))
+            min(20 * np.log10((rms_max + 1e-10) / (rms_min + 1e-10)), 80.0))
 
     x     = np.arange(len(rms), dtype=float)
     slope = np.polyfit(x, rms, 1)[0]
@@ -287,7 +286,7 @@ def extract_all_features(npy_path, composer, mp3_files):
     offset    = chunk_idx * CHUNK_DURATION
     mp3_dir   = os.path.join(RAW_DIR, composer)
 
-    # preprocessing truncated filenames to 50 chars — match on the same basis
+    # preprocessing truncated filenames to 50 chars — match on same basis
     mp3_match = next(
         (f for f in mp3_files
          if os.path.splitext(f)[0].replace(' ', '_')[:50] == mp3_base),
@@ -309,7 +308,7 @@ def extract_all_features(npy_path, composer, mp3_files):
 
     row = {}
     row.update(extract_mfcc_features(y, sr))
-    row.update(extract_spectral_features(y, S, sr))
+    row.update(extract_spectral_features(S, sr))
     row.update(extract_harmony_features(sr, chroma))
     row.update(extract_rhythm_features(y, sr))
     row.update(extract_dynamics_features(y, sr, S))
@@ -317,8 +316,9 @@ def extract_all_features(npy_path, composer, mp3_files):
     row.update(extract_structure_features(chroma))
     row.update(extract_polyphony_features(S))
 
-    row['composer'] = composer
-    row['era']      = ERA_MAP[composer]
+    row['source_file'] = mp3_base   # needed for piece-level train/test split
+    row['composer']    = composer
+    row['era']         = ERA_MAP[composer]
 
     return row
 
@@ -358,18 +358,19 @@ def main():
     print(f"\ndone. saved {len(df)} rows x {len(df.columns)} columns")
     print(f"saved to: {OUTPUT_CSV}")
 
-    feature_cols = [c for c in df.columns if c not in ('composer', 'era')]
+    feature_cols = [c for c in df.columns
+                    if c not in ('composer', 'era', 'source_file')]
     print(f"\nfeature count: {len(feature_cols)}")
-    print(f"  mfcc (mean+std+delta+delta2 × 13):                52")
+    print(f"  mfcc (mean+std+delta+delta2 × 13):                  52")
     print(f"  spectral (centroid/rolloff/bandwidth/flat/contrast): 11")
-    print(f"  harmony (chroma+entropy+tonnetz+key+chroma):       35")
-    print(f"  rhythm (tempo/onsets/regularity/tempogram/sync):    5")
-    print(f"  dynamics (rms/range/slope/flux/zcr):                6")
-    print(f"  texture (hp_ratio):                                  1")
-    print(f"  structure (self_similarity/autocorr):               2")
-    print(f"  polyphony (peak_count/estimate):                     2")
-    print(f"  ────────────────────────────────────────────────────")
-    print(f"  total:                                             114")
+    print(f"  harmony (chroma+entropy+tonnetz+key+chromaticism):   35")
+    print(f"  rhythm (tempo/onsets/regularity/tempogram/sync):      5")
+    print(f"  dynamics (rms/range/slope/flux/zcr):                  6")
+    print(f"  texture (hp_ratio):                                    1")
+    print(f"  structure (self_similarity/autocorr):                  2")
+    print(f"  polyphony (peak_count/estimate):                       2")
+    print(f"  ──────────────────────────────────────────────────────")
+    print(f"  total:                                               114")
 
 
 if __name__ == "__main__":

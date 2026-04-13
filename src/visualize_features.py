@@ -17,7 +17,8 @@ COLORS = {
 
 df = pd.read_csv(CSV_PATH)
 composers    = ["bach", "vivaldi", "paganini", "tchaikovsky"]
-feature_cols = [c for c in df.columns if c not in ("composer", "era")]
+feature_cols = [c for c in df.columns if c not in ("composer", "era", "source_file")]
+
 
 print(f"Loaded {len(df)} rows x {len(feature_cols)} features")
 print(f"Composer counts:\n{df['composer'].value_counts()}\n")
