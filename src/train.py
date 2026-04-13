@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from sklearn.pipeline        import Pipeline
 from sklearn.preprocessing   import StandardScaler
-from sklearn.ensemble        import RandomForestClassifier
+from sklearn.ensemble        import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics         import (classification_report,
                                      confusion_matrix,
@@ -35,7 +35,6 @@ def load_data():
     df = pd.read_csv(FEATURES_CSV)
     print(f"loaded {len(df)} rows x {len(df.columns)} columns")
 
-    # drop NaN rows if any feature extraction silently failed
     n_before = len(df)
     df = df.dropna()
     if len(df) < n_before:
@@ -64,7 +63,19 @@ def load_data():
     return X, y_composer, y_era, feature_cols, source_files
 
 
-def build_pipeline():
+def build_composer_pipeline():
+    return Pipeline([
+        ('scaler', StandardScaler()),
+        ('gb', GradientBoostingClassifier(
+            n_estimators  = 300,
+            max_depth     = 5,
+            learning_rate = 0.1,
+            random_state  = RANDOM_STATE
+        ))
+    ])
+
+
+def build_era_pipeline():
     return Pipeline([
         ('scaler', StandardScaler()),
         ('rf', RandomForestClassifier(
@@ -102,7 +113,9 @@ def evaluate(model, X_test, y_test, label, class_names):
 
 
 def plot_feature_importances(model, feature_cols, label):
-    importances = model.named_steps['rf'].feature_importances_
+    # get the classifier step — either 'gb' or 'rf'
+    clf = model.named_steps.get('gb') or model.named_steps.get('rf')
+    importances = clf.feature_importances_
     indices     = np.argsort(importances)[::-1][:TOP_N_FEATURES]
 
     top_names  = [feature_cols[i] for i in indices]
@@ -127,14 +140,13 @@ def plot_feature_importances(model, feature_cols, label):
     print(f"feature importances saved -> {plot_path}")
 
 
-def train_model(X, y, label, feature_cols, groups):
+def train_model(X, y, label, feature_cols, groups, pipeline_fn):
     print(f"\n{'-' * 52}")
     print(f"  training {label} model")
     print(f"{'-' * 52}")
 
     class_names = sorted(set(y))
 
-    # split at piece level — no chunks from the same MP3 in both sets
     gss = GroupShuffleSplit(
         n_splits=1, test_size=TEST_SIZE, random_state=RANDOM_STATE)
     train_idx, test_idx = next(gss.split(X, y, groups=groups))
@@ -147,8 +159,8 @@ def train_model(X, y, label, feature_cols, groups):
     print(f"test  set: {len(X_test)} chunks  "
           f"({len(set(groups[test_idx]))} pieces)")
 
-    model = build_pipeline()
-    print(f"training {N_ESTIMATORS} trees... ", end='', flush=True)
+    model = pipeline_fn()
+    print(f"training... ", end='', flush=True)
     model.fit(X_train, y_train)
     print("done")
 
@@ -170,9 +182,12 @@ def main():
     X, y_composer, y_era, feature_cols, source_files = load_data()
 
     composer_model = train_model(
-        X, y_composer, "composer", feature_cols, source_files)
-    era_model      = train_model(
-        X, y_era,      "era",      feature_cols, source_files)
+        X, y_composer, "composer", feature_cols, source_files,
+        build_composer_pipeline)
+
+    era_model = train_model(
+        X, y_era, "era", feature_cols, source_files,
+        build_era_pipeline)
 
     print(f"\n{'=' * 52}")
     print("  all done.")
@@ -183,4 +198,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
