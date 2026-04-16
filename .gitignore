@@ -1,7 +1,5 @@
-# Audio files and generated data — never commit these
-data/raw/
-data/processed/
-models/
+# Ignore all data directory contents
+data/
 
 # Virtual environment
 venv/
@@ -17,6 +15,7 @@ Thumbs.db
 
 # Logs and temporary files
 processing.log
+extract.log
 *.png
 
 # VS Code settings
