@@ -1,4 +1,4 @@
-# Auralens
+# AuraLens
 
 An ML-powered tool that listens to classical music and identifies the **composer** — not by recognizing the piece, but by analyzing over **160 musical features** including harmony, timbre, rhythm, voice independence, and phrase structure.
 
