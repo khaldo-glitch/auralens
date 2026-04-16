@@ -48,11 +48,10 @@ except ImportError:
     MIC_AVAILABLE = False
 
 # ─── paths (cross-platform via pathlib) ──────────────────────
-BASE_DIR            = Path.home() / 'auralens'
+BASE_DIR            = Path(__file__).resolve().parent.parent
 MODELS_DIR          = BASE_DIR / 'models'
 COMPOSER_MODEL_PATH = MODELS_DIR / 'composer_model.pkl'
 ERA_MODEL_PATH      = MODELS_DIR / 'era_model.pkl'
-
 # ─── audio / feature constants ───────────────────────────────
 FREQ_LOW_MAX   =  400.0
 FREQ_MID_MAX   = 2000.0
