@@ -24,16 +24,6 @@ An ML-powered tool that listens to classical music and identifies the **composer
 
 The model was tuned with **RandomizedSearchCV** using **piece-level GroupKFold** to avoid data leakage.
 
-### Test set performance (Phase 3)
-
-| Composer | Chunk accuracy | Piece accuracy |
-|----------|----------------|----------------|
-| Bach | 86.5% | 100% |
-| Vivaldi | 87.3% | 100% |
-| Paganini | 100% | 100% |
-| Tchaikovsky | 66.8% | 92.3% |
-| **Overall** | **82.5%** | **95.5%** |
-
 > **Note:** This is a *closed-set* classifier — it always outputs one of the four composers above.  
 > Music by other composers will be matched to the closest style it knows.
 
