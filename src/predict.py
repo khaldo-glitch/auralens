@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """
 predict.py — AuraLens composer identifier
-Supports: file path input (drag & drop or paste), microphone recording
-Cross-platform: Windows, macOS, Linux
+Accepts audio input via file path (command-line argument or interactive prompt).
+Cross-platform: Windows, macOS, Linux / WSL
 """
 
 import os
 import sys
-import time
-import tempfile
 import warnings
 import numpy as np
 import librosa
@@ -39,24 +37,16 @@ from extract_features import (
     SR, CHUNK_DURATION, N_FFT, HOP_LENGTH,
 )
 
-# ─── optional microphone support ─────────────────────────────
-try:
-    import sounddevice as sd
-    import soundfile as sf
-    MIC_AVAILABLE = True
-except ImportError:
-    MIC_AVAILABLE = False
-
 # ─── paths (cross-platform via pathlib) ──────────────────────
-BASE_DIR            = Path(__file__).resolve().parent.parent
+BASE_DIR            = Path.home() / 'auralens'
 MODELS_DIR          = BASE_DIR / 'models'
 COMPOSER_MODEL_PATH = MODELS_DIR / 'composer_model.pkl'
 ERA_MODEL_PATH      = MODELS_DIR / 'era_model.pkl'
+
 # ─── audio / feature constants ───────────────────────────────
 FREQ_LOW_MAX   =  400.0
 FREQ_MID_MAX   = 2000.0
 FRAMES_PER_SEC = SR / HOP_LENGTH          # ≈ 43.1
-RECORD_SECONDS = 30
 EXCLUDED_FEATURES = set()
 
 # ─── display maps ────────────────────────────────────────────
@@ -155,17 +145,29 @@ def make_bar(value, width=14):
 
 
 def normalize_path(raw: str) -> str:
+    """
+    Accept paths from any OS.
+    Handles: Windows backslashes, quoted paths, drag-and-drop prefixes,
+    home (~), environment variables, and WSL drive letter conversion.
+    """
     p = raw.strip()
+    # Strip surrounding quotes (Windows Explorer drag adds these)
     if len(p) >= 2 and p[0] in ('"', "'") and p[-1] == p[0]:
         p = p[1:-1]
+    # Convert Windows backslashes
     p = p.replace('\\', '/')
-    # Convert Windows drive letters → WSL paths (only when running on Linux/WSL)
-    if sys.platform.startswith('linux') and len(p) >= 3 and p[1] == ':' and p[2] == '/':
-        drive = p[0].lower()
-        p = f'/mnt/{drive}/{p[3:]}'
+    # Expand ~ and env vars
     p = os.path.expanduser(p)
     p = os.path.expandvars(p)
+    # WSL: convert C:/... → /mnt/c/...
+    if (sys.platform.startswith('linux')
+            and len(p) >= 3
+            and p[1] == ':'
+            and p[2] == '/'):
+        drive = p[0].lower()
+        p = f'/mnt/{drive}/{p[3:]}'
     return p
+
 
 # ─── new feature extraction (matches features2.csv) ──────────
 def extract_supplement_features(y, S):
@@ -214,16 +216,14 @@ def extract_chunk_features(y, sr, S):
     """Extract all 164 features from one 30-second chunk."""
     chroma = librosa.feature.chroma_stft(S=S ** 2, sr=sr, n_fft=N_FFT)
     row = {}
-    # Acoustic (114 features)
     row.update(extract_mfcc_features(y, sr))
-    row.update(extract_spectral_features(y, S, sr))        # note: y added
+    row.update(extract_spectral_features(y, S, sr))
     row.update(extract_harmony_features(sr, chroma))
     row.update(extract_rhythm_features(y, sr))
     row.update(extract_dynamics_features(y, sr, S))
     row.update(extract_texture_features(y))
     row.update(extract_structure_features(chroma))
     row.update(extract_polyphony_features(S))
-    # Stylistic (47 features)
     row.update(extract_horizontal_vertical_features(chroma))
     row.update(extract_register_features(S, sr))
     row.update(extract_voice_independence_features(S, sr))
@@ -233,8 +233,7 @@ def extract_chunk_features(y, sr, S):
     row.update(extract_phrase_features(y, sr, chroma))
     row.update(extract_temporal_organization_features(chroma, S))
     row.update(extract_targeted_separation_features(y, S, sr, chroma))
-    # Supplement features2.csv (+3)
-    row.update(extract_supplement_features(y, S))
+    row.update(extract_supplement_features(y, S))   # +3 new features
     return row
 
 
@@ -272,44 +271,6 @@ def chunks_to_matrix(chunks):
     feature_names = [k for k in chunks[0].keys() if k not in EXCLUDED_FEATURES]
     X = np.array([[chunk[k] for k in feature_names] for chunk in chunks])
     return X, feature_names
-
-
-# ─── microphone recording ─────────────────────────────────────
-def record_from_mic() -> str:
-    """Record audio from microphone, save to temp WAV, return path."""
-    print(f"\n  Recording for {RECORD_SECONDS} seconds.")
-    print("  Play your music now — press Ctrl+C to stop early.\n")
-
-    try:
-        recording = sd.rec(
-            int(RECORD_SECONDS * SR),
-            samplerate=SR, channels=1, dtype='float32'
-        )
-        for i in range(RECORD_SECONDS):
-            time.sleep(1)
-            done  = '█' * (i + 1)
-            left  = '░' * (RECORD_SECONDS - i - 1)
-            print(f"  [{done}{left}] {i + 1}s / {RECORD_SECONDS}s", end='\r')
-        sd.wait()
-        print()
-
-    except KeyboardInterrupt:
-        sd.stop()
-        print("\n  Stopped early.")
-
-    # Trim trailing near-silence
-    data = recording.squeeze()
-    nonzero = np.flatnonzero(np.abs(data) > 1e-5)
-    if len(nonzero) > 0:
-        data = data[:nonzero[-1] + 1]
-
-    if len(data) < SR * 10:
-        raise ValueError("Recording too short — need at least 10 seconds of audio.")
-
-    tmp = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
-    sf.write(tmp.name, data, SR)
-    print(f"  Saved recording ({len(data)/SR:.1f}s)")
-    return tmp.name
 
 
 # ─── display ─────────────────────────────────────────────────
@@ -414,28 +375,15 @@ def main():
     era_model      = joblib.load(ERA_MODEL_PATH)
     print("  Models loaded ✓")
 
-    # ── input mode ───────────────────────────────────────────
-    print()
-    print("  How would you like to provide the audio?")
-    print()
-    print("  [1] Audio file  (mp3, wav, flac, ogg, m4a)")
-    if MIC_AVAILABLE:
-        print("  [2] Record from microphone")
+    # ── get file path ─────────────────────────────────────────
+    if len(sys.argv) > 1:
+        # Passed as command-line argument
+        file_path = normalize_path(sys.argv[1])
+        if not os.path.isfile(file_path):
+            print(f"\n  ERROR: File not found: {file_path}")
+            sys.exit(1)
     else:
-        print("  [2] Record from microphone  "
-              "(unavailable — pip install sounddevice soundfile)")
-    print()
-
-    while True:
-        choice = input("  Enter 1 or 2: ").strip()
-        if choice in ('1', '2'):
-            break
-        print("  Please enter 1 or 2.")
-
-    tmp_file = None
-
-    # ── option 1: file ────────────────────────────────────────
-    if choice == '1':
+        # Interactive prompt
         print()
         print("  ┌─ TIP FOR NON-TECH USERS ──────────────────────┐")
         print("  │  Drag your audio file onto this window        │")
@@ -456,24 +404,6 @@ def main():
             print(f"\n  File not found: {file_path}")
             print("  Please try again.\n")
 
-    # ── option 2: microphone ──────────────────────────────────
-    else:
-        if not MIC_AVAILABLE:
-            print("\n  Microphone support requires:")
-            print("    pip install sounddevice soundfile")
-            sys.exit(1)
-
-        try:
-            file_path = record_from_mic()
-            tmp_file  = file_path
-        except Exception as e:
-            print(f"\n  Recording failed: {e}")
-            if 'device' in str(e).lower() or 'PortAudio' in str(e):
-                print("\n  NOTE: Microphone is not supported in WSL.")
-                print("  To use recording, run predict.py with native")
-                print("  Windows Python (not WSL) or on Linux/macOS.")
-            sys.exit(1)
-
     # ── run pipeline ─────────────────────────────────────────
     try:
         print("\n  [ Analysing... ]")
@@ -492,14 +422,6 @@ def main():
     except Exception as e:
         print(f"\n  ERROR: {e}")
         sys.exit(1)
-
-    finally:
-        # Clean up temp recording file if created
-        if tmp_file and os.path.exists(tmp_file):
-            try:
-                os.remove(tmp_file)
-            except Exception:
-                pass
 
 
 if __name__ == "__main__":

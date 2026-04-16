@@ -130,52 +130,35 @@ pip install -r requirements.txt
 
 ---
 
-### 4. Install system dependency for microphone support
-
-**Linux / WSL:**
-
-```bash
-sudo apt-get install libportaudio2
-```
-
-**macOS:**
-
-```bash
-brew install portaudio
-```
-
-**Windows:**
-PortAudio is bundled automatically — no extra step needed.
-
-> Microphone recording is **not supported in WSL** due to hardware limitations.
-> Use an audio file instead, or run on native Windows/Linux/macOS for microphone input.
-
----
-
 ## Usage
 
 ```bash
 python src/predict.py
 ```
 
-You will be prompted to choose input:
+You will be prompted to enter the path to an audio file:
 
 ```
-[1] Audio file (mp3, wav, flac, ogg, m4a)
-[2] Record from microphone
+  ┌─ TIP FOR NON-TECH USERS ──────────────────────┐
+  │  Drag your audio file onto this window        │
+  │  and press Enter — no need to type the path.  │
+  │  Works on Windows, macOS, and Linux.          │
+  └───────────────────────────────────────────────┘
+
+  Supported formats: mp3  wav  flac  ogg  m4a
+
+  >
 ```
 
-### Option 1 — File
+You can also pass the file path directly as a command-line argument:
 
-* Drag and drop your audio file into the terminal, then press Enter
-* Or paste the file path manually
-* Supported formats: **mp3, wav, flac, ogg, m4a**
+```bash
+python src/predict.py /path/to/piece.mp3
+```
 
-### Option 2 — Microphone
+**On Windows**, you can drag and drop a file onto the terminal window — the path will be pasted automatically. Just press Enter to confirm.
 
-* Records up to **30 seconds**
-* Press **Ctrl+C** to stop early
-* Play music near your microphone while recording
+Supported formats: **mp3, wav, flac, ogg, m4a**
 
 ---
 
@@ -233,4 +216,3 @@ AuraLens is an evolving project, and several enhancements are planned to expand 
 * **Closed-set classifier:** always outputs one of the four trained composers
 * **Chunk-level uncertainty:** individual 30-second chunks may be noisy, especially for Tchaikovsky
 * **Instrumentation bias:** trained mostly on orchestral + solo instrumental recordings
-* **Microphone quality:** live inference depends heavily on mic quality, room noise, and recording duration
