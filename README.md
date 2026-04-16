@@ -153,6 +153,31 @@ python src/train.py                # train + evaluate → models/*.pkl
 ```
 
 ---
+## Future Improvements
+
+AuraLens is an evolving project, and several enhancements are planned to expand its accuracy, scope, and usability:
+
+- **Improved composer detection**  
+  Further tuning of the feature set and model architecture to increase chunk‑level and piece‑level accuracy, especially for closely related styles.
+
+- **Deeper stylistic analysis**  
+  More emphasis on high‑level musical traits such as phrasing behavior, harmonic language, orchestration patterns, and voice‑leading tendencies unique to each composer.
+
+- **Support for additional composers**  
+  Expanding the dataset to include more Baroque, Classical, and Romantic composers.
+
+- **Addition of the Classical era**  
+  Introducing composers such as Mozart, Haydn, and early Beethoven to cover the stylistic gap between Baroque and Romantic periods.
+
+- **Enhanced feature extraction pipeline**  
+  Incorporating more advanced spectral, rhythmic, and structural descriptors for richer musical representation.
+
+- **Improved user interface**  
+  A cleaner, more intuitive CLI and (eventually) a lightweight GUI for easier interaction and real‑time feedback.
+
+- **Better analysis output**  
+  More detailed explanations of why the model chose a certain composer, including feature importance and stylistic reasoning.
+
 
 ## Limitations
 
