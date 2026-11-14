@@ -38,7 +38,7 @@ from extract_features import (
 )
 
 # ─── paths (cross-platform via pathlib) ──────────────────────
-BASE_DIR            = Path.home() / 'auralens'
+BASE_DIR = Path(__file__).resolve().parent.parent
 MODELS_DIR          = BASE_DIR / 'models'
 COMPOSER_MODEL_PATH = MODELS_DIR / 'composer_model.pkl'
 ERA_MODEL_PATH      = MODELS_DIR / 'era_model.pkl'
