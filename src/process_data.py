@@ -26,11 +26,8 @@ def process_file(filepath, out_dir, filename_base):
     
     while start + CHUNK_DURATION <= duration:
         # load only 30 seconds at a time — never the whole file
-        chunk = librosa.load(filepath, sr=SR, 
-                             offset=start, 
-                             duration=CHUNK_DURATION)[0]
-        
-        D         = librosa.stft(chunk, n_fft=N_FFT, hop_length=HOP_LENGTH)
+        chunk = librosa.load(filepath, sr=SR, offset=start, duration=CHUNK_DURATION)[0]
+        D = librosa.stft(chunk, n_fft=N_FFT, hop_length=HOP_LENGTH)
         magnitude = np.abs(D)
         
         out_path = os.path.join(out_dir, f"{filename_base}_chunk_{i:03d}.npy")
